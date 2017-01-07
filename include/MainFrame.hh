@@ -4,13 +4,16 @@
 // Author: Hongyi Wu(吴鸿毅)
 // Email: wuhongyi@qq.com 
 // Created: 日 1月  1 20:04:58 2017 (+0800)
-// Last-Updated: 日 1月  1 20:56:00 2017 (+0800)
+// Last-Updated: 六 1月  7 13:35:16 2017 (+0800)
 //           By: Hongyi Wu(吴鸿毅)
-//     Update #: 4
+//     Update #: 11
 // URL: http://wuhongyi.cn 
 
 #ifndef _MAINFRAME_H_
 #define _MAINFRAME_H_
+
+#include "PB5.hh"
+#include "MSCF.hh"
 
 #include "RVersion.h"//版本判断
 #include "TApplication.h"
@@ -116,8 +119,10 @@
 
 enum ButtonIDs
   {
-    CONNECTBUTTON,
-    DELETEBUTTON
+    CONNECTBUTTONPB5,
+    DELETEBUTTONPB5,
+    CONNECTBUTTONMSCF,
+    DELETEBUTTONMSCF
   };
 
 class MainFrame : public TGMainFrame
@@ -134,24 +139,38 @@ private:
   void CloseWindow(); //close main window
 
   void MakeFoldPanelPB_5(TGCompositeFrame *TabPanel);
-
+  void MakeFoldPanelMSCF(TGCompositeFrame *TabPanel);
 
   int OpenDev(char *Dev);
   void set_speed(int fd, int speed);
   int set_Parity(int fd,int databits,int stopbits,int parity);
 
+  void DisplaySettingsPB5();
+  void DisplaySettingsMSCF();
+  
 private:
   int fd;
   char buff[10240];
+  int nwrite;
+  int nread;
+
+  PB5 *pb5;
+  MSCF *mscf;
   
 private:
   TGCompositeFrame *Tab1;
+  TGCompositeFrame *Tab2;
   
   // Init
-  TGComboBox *connectStyle;
-  TGTextButton *connectButton;
-  TGTextButton *DeleteButton;
-  TGTextEntry *StateMsg;
+  TGComboBox *connectStylePB5;
+  TGTextButton *connectButtonPB5;
+  TGTextButton *DeleteButtonPB5;
+  TGTextEntry *StateMsgPB5;
+
+  TGComboBox *connectStyleMSCF;
+  TGTextButton *connectButtonMSCF;
+  TGTextButton *DeleteButtonMSCF;
+  TGTextEntry *StateMsgMSCF;
 
   
   ClassDef(MainFrame,0)
@@ -160,5 +179,3 @@ private:
 #endif /* _MAINFRAME_H_ */
 // 
 // MainFrame.hh ends here
-
-

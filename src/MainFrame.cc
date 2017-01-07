@@ -4,9 +4,9 @@
 // Author: Hongyi Wu(吴鸿毅)
 // Email: wuhongyi@qq.com 
 // Created: 日 1月  1 20:05:32 2017 (+0800)
-// Last-Updated: 日 1月  1 21:09:38 2017 (+0800)
+// Last-Updated: 六 1月  7 14:05:51 2017 (+0800)
 //           By: Hongyi Wu(吴鸿毅)
-//     Update #: 8
+//     Update #: 54
 // URL: http://wuhongyi.cn 
 
 #include "MainFrame.hh"
@@ -14,14 +14,21 @@
 #include <stdio.h>  /*标准输入输出定义*/
 #include <stdlib.h> /*标准函数库定义*/
 #include <unistd.h> /*Unix 标准函数定义*/
-#include <sys/types.h> 
-#include <sys/stat.h>   
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>  /*文件控制定义*/
 #include <termios.h>/*POSIX 终端控制定义*/
 #include <errno.h>  /*错误号定义*/
 
+#include <sstream>
+#include <cstring>
+#include <string>
+#include <iostream>
 #include <ctime>
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+ClassImp(MainFrame)
 
 MainFrame::MainFrame(const TGWindow * p)
 : TGMainFrame(p)
@@ -31,13 +38,15 @@ MainFrame::MainFrame(const TGWindow * p)
   this->AddFrame(TabPanel, new TGLayoutHints(kLHintsBottom | kLHintsExpandX | kLHintsExpandY, 0, 0, 0, 0));
   Tab1 = TabPanel->AddTab("PB-5");
   MakeFoldPanelPB_5(Tab1);
-
-
+  Tab2 = TabPanel->AddTab("MSCF");
+  MakeFoldPanelMSCF(Tab2);
   
+  pb5 = new PB5();
+  mscf = new MSCF();
 
   // What to clean up in dtor
   SetCleanup(kDeepCleanup);
-  SetWindowName("PKU PB-5");
+  SetWindowName("PKU REMOTE");
   MapSubwindows();
   Resize(GetDefaultSize());
   MapWindow();
@@ -49,6 +58,8 @@ MainFrame::~MainFrame()
   // Clean up all widgets, frames and layouthints that were used
   Cleanup();
 
+  delete pb5;
+  delete mscf;
 }
 
 
@@ -67,43 +78,91 @@ void MainFrame::MakeFoldPanelPB_5(TGCompositeFrame *TabPanel)
   TGHorizontalFrame *initboaed = new TGHorizontalFrame(initboaedgroup);
   initboaedgroup->AddFrame(initboaed, new TGLayoutHints(kLHintsExpandX | kLHintsTop,0/*left*/,0/*right*/,0/*top*/,0/*bottom*/));
 
-  connectStyle = new TGComboBox(initboaed,-1);
-  initboaed->AddFrame(connectStyle, new TGLayoutHints(kLHintsLeft, 5, 5, 2, 2));
-  connectStyle->AddEntry("USB0",0);
-  connectStyle->AddEntry("USB1",1);
-  connectStyle->AddEntry("USB2",2);
-  connectStyle->AddEntry("USB3",3);
-  connectStyle->AddEntry("USB4",4);
-  connectStyle->Select(0);
-  connectStyle->Resize(100,20);
+  connectStylePB5 = new TGComboBox(initboaed,-1);
+  initboaed->AddFrame(connectStylePB5, new TGLayoutHints(kLHintsLeft, 5, 5, 2, 2));
+  connectStylePB5->AddEntry("USB0",0);
+  connectStylePB5->AddEntry("USB1",1);
+  connectStylePB5->AddEntry("USB2",2);
+  connectStylePB5->AddEntry("USB3",3);
+  connectStylePB5->AddEntry("USB4",4);
+  connectStylePB5->Select(0);
+  connectStylePB5->Resize(100,20);
 
-  connectButton = new TGTextButton(initboaed,"Connect",CONNECTBUTTON);
-  initboaed->AddFrame(connectButton, new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 10,0, 0));
-  connectButton->SetFont("-adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-iso8859-1", false);
-  connectButton->SetTextColor(0x0000ff, false);
-  connectButton->Associate(this);
-  connectButton->SetEnabled(1);
+  connectButtonPB5 = new TGTextButton(initboaed,"Connect",CONNECTBUTTONPB5);
+  initboaed->AddFrame(connectButtonPB5, new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 10,0, 0));
+  connectButtonPB5->SetFont("-adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-iso8859-1", false);
+  connectButtonPB5->SetTextColor(0x0000ff, false);
+  connectButtonPB5->Associate(this);
+  connectButtonPB5->SetEnabled(1);
 
-  DeleteButton = new TGTextButton(initboaed,"DeleteConnect",DELETEBUTTON);
-  initboaed->AddFrame(DeleteButton, new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 10,0, 0));
-  DeleteButton->SetFont("-adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-iso8859-1", false);
-  DeleteButton->SetTextColor(0xff0000, false);
-  DeleteButton->Associate(this);
-  DeleteButton->SetEnabled(0);
+  DeleteButtonPB5 = new TGTextButton(initboaed,"DeleteConnect",DELETEBUTTONPB5);
+  initboaed->AddFrame(DeleteButtonPB5, new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 10,0, 0));
+  DeleteButtonPB5->SetFont("-adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-iso8859-1", false);
+  DeleteButtonPB5->SetTextColor(0xff0000, false);
+  DeleteButtonPB5->Associate(this);
+  DeleteButtonPB5->SetEnabled(0);
 
-  StateMsg = new TGTextEntry(initboaed,
+  StateMsgPB5 = new TGTextEntry(initboaed,
 			     new TGTextBuffer(100), -1,
-			     StateMsg->GetDefaultGC()(),
-			     StateMsg->GetDefaultFontStruct(),
+			     StateMsgPB5->GetDefaultGC()(),
+			     StateMsgPB5->GetDefaultFontStruct(),
 			     kRaisedFrame | kDoubleBorder,
 			     GetWhitePixel());
-  initboaed->AddFrame(StateMsg, new TGLayoutHints(kLHintsExpandX | kLHintsLeft, 10, 0, 0, 0));
-  StateMsg->SetFont("-adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-iso8859-1", false);
-  StateMsg->SetTextColor(0xd15fee, false);
-  StateMsg->SetText("Please enter Connect");
-  // StateMsg->Resize(100, 12);
-  StateMsg->SetEnabled(kFALSE);
-  StateMsg->SetFrameDrawn(kFALSE);
+  initboaed->AddFrame(StateMsgPB5, new TGLayoutHints(kLHintsExpandX | kLHintsLeft, 10, 0, 0, 0));
+  StateMsgPB5->SetFont("-adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-iso8859-1", false);
+  StateMsgPB5->SetTextColor(0xd15fee, false);
+  StateMsgPB5->SetText("Please enter Connect");
+  // StateMsgPB5->Resize(100, 12);
+  StateMsgPB5->SetEnabled(kFALSE);
+  StateMsgPB5->SetFrameDrawn(kFALSE);
+  
+}
+
+void MainFrame::MakeFoldPanelMSCF(TGCompositeFrame *TabPanel)
+{
+  TGGroupFrame *initboaedgroup = new TGGroupFrame(TabPanel,"Connect");
+  TabPanel->AddFrame(initboaedgroup,new TGLayoutHints(kLHintsExpandX|kLHintsTop));
+
+  TGHorizontalFrame *initboaed = new TGHorizontalFrame(initboaedgroup);
+  initboaedgroup->AddFrame(initboaed, new TGLayoutHints(kLHintsExpandX | kLHintsTop,0/*left*/,0/*right*/,0/*top*/,0/*bottom*/));
+
+  connectStyleMSCF = new TGComboBox(initboaed,-1);
+  initboaed->AddFrame(connectStyleMSCF, new TGLayoutHints(kLHintsLeft, 5, 5, 2, 2));
+  connectStyleMSCF->AddEntry("USB0",0);
+  connectStyleMSCF->AddEntry("USB1",1);
+  connectStyleMSCF->AddEntry("USB2",2);
+  connectStyleMSCF->AddEntry("USB3",3);
+  connectStyleMSCF->AddEntry("USB4",4);
+  connectStyleMSCF->Select(0);
+  connectStyleMSCF->Resize(100,20);
+
+  connectButtonMSCF = new TGTextButton(initboaed,"Connect",CONNECTBUTTONMSCF);
+  initboaed->AddFrame(connectButtonMSCF, new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 10,0, 0));
+  connectButtonMSCF->SetFont("-adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-iso8859-1", false);
+  connectButtonMSCF->SetTextColor(0x0000ff, false);
+  connectButtonMSCF->Associate(this);
+  connectButtonMSCF->SetEnabled(1);
+
+  DeleteButtonMSCF = new TGTextButton(initboaed,"DeleteConnect",DELETEBUTTONMSCF);
+  initboaed->AddFrame(DeleteButtonMSCF, new TGLayoutHints(kLHintsTop | kLHintsLeft, 5, 10,0, 0));
+  DeleteButtonMSCF->SetFont("-adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-iso8859-1", false);
+  DeleteButtonMSCF->SetTextColor(0xff0000, false);
+  DeleteButtonMSCF->Associate(this);
+  DeleteButtonMSCF->SetEnabled(0);
+
+  StateMsgMSCF = new TGTextEntry(initboaed,
+			     new TGTextBuffer(100), -1,
+			     StateMsgMSCF->GetDefaultGC()(),
+			     StateMsgMSCF->GetDefaultFontStruct(),
+			     kRaisedFrame | kDoubleBorder,
+			     GetWhitePixel());
+  initboaed->AddFrame(StateMsgMSCF, new TGLayoutHints(kLHintsExpandX | kLHintsLeft, 10, 0, 0, 0));
+  StateMsgMSCF->SetFont("-adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-iso8859-1", false);
+  StateMsgMSCF->SetTextColor(0xd15fee, false);
+  StateMsgMSCF->SetText("Please enter Connect");
+  // StateMsgMSCF->Resize(100, 12);
+  StateMsgMSCF->SetEnabled(kFALSE);
+  StateMsgMSCF->SetFrameDrawn(kFALSE);
   
 }
 
@@ -247,6 +306,40 @@ int MainFrame::set_Parity(int fd,int databits,int stopbits,int parity)
   return 0;  
 }
 
+void MainFrame::DisplaySettingsPB5()
+{
+  nwrite = write(fd,"DISPLAY SETTINGS\r",17); 
+  if (nwrite < 0) 
+    printf("write() of 17 bytes failed!\n");
+		      
+  // usleep(100000);
+  sleep(1);
+		      
+  while((nread = read(fd, buff, 10240))>0)
+    { 
+      printf("\nLen %d\n",nread); 
+      buff[nread+1] = '\0';
+      printf( "%s", buff);
+    }
+}
+
+void MainFrame::DisplaySettingsMSCF()
+{
+  nwrite = write(fd,"DS\r",3); 
+  if (nwrite < 0) 
+    printf("write() of 3 bytes failed!\n");
+		      
+  // usleep(100000);
+  sleep(2);
+		      
+  while((nread = read(fd, buff, 10240))>0)
+    { 
+      printf("\nLen %d\n",nread); 
+      buff[nread+1] = '\0';
+      printf( "%s", buff);
+    }
+}
+
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 Bool_t MainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
@@ -294,14 +387,14 @@ Bool_t MainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
 	  // Selecting a text or picture button will generate the event
 	  switch(parm1)
 	    {
-	    case CONNECTBUTTON:
 	      char dev[32];
-	      sprintf(dev,"/dev/ttyUSB%d",connectStyle->GetSelected());
+	    case CONNECTBUTTONPB5:
+	      sprintf(dev,"/dev/ttyUSB%d",connectStylePB5->GetSelected());
 
 	      fd = OpenDev(dev);
 	      if(fd == -1)
 		{
-		  StateMsg->SetText("Can't Open Serial Port");
+		  StateMsgPB5->SetText("Can't Open Serial Port");
 
 		}
 	      else
@@ -312,25 +405,96 @@ Bool_t MainFrame::ProcessMessage(Long_t msg, Long_t parm1, Long_t parm2)
   
 		  if (set_Parity(fd,8,1,'N') == -1)
 		    {
-		      StateMsg->SetText("Set Parity Error ...");
+		      StateMsgPB5->SetText("Set Parity Error ...");
 		    }
 		  else
 		    {
-		      StateMsg->SetText("Open Serial Port");
-		      connectButton->SetEnabled(0);
-		      DeleteButton->SetEnabled(1);
+		      DisplaySettingsPB5();
+		      std::string buffstring(buff);
+		      for (int i = 0; i < 10240; ++i)
+			{
+			  buff[i] = '\0';
+			}
+
+		      if(buffstring.find("PULSER SETTINGS",0)!=std::string::npos && buffstring.find("OK",0)!=std::string::npos)
+			{
+			  pb5->SetBufferData(buffstring);
+			  pb5->Print();
+			}
+		      else
+			{
+			  break;
+			}
+		   
+		      StateMsgPB5->SetText("Open Serial Port");
+		      connectButtonPB5->SetEnabled(0);
+		      DeleteButtonPB5->SetEnabled(1);
 		    }
 		}
 	      break;
 
-	    case DELETEBUTTON:
+	    case DELETEBUTTONPB5:
 	      // TODO
-	      connectButton->SetEnabled(1);
-	      DeleteButton->SetEnabled(0);
-	      StateMsg->SetText("Please enter Connect");
-
+	      close(fd);
+	      connectButtonPB5->SetEnabled(1);
+	      DeleteButtonPB5->SetEnabled(0);
+	      StateMsgPB5->SetText("Please enter Connect");
 	      break;
 
+
+	    case CONNECTBUTTONMSCF:
+	      sprintf(dev,"/dev/ttyUSB%d",connectStyleMSCF->GetSelected());
+
+	      fd = OpenDev(dev);
+	      if(fd == -1)
+		{
+		  StateMsgMSCF->SetText("Can't Open Serial Port");
+
+		}
+	      else
+		{
+		  fcntl(fd, F_SETFL, FNDELAY);// 使read函数立即返回而不阻塞。FNDELAY选项使read函数在串口无字符时立即返回且为0。
+  
+		  set_speed(fd,9600);
+  
+		  if (set_Parity(fd,8,1,'N') == -1)
+		    {
+		      StateMsgMSCF->SetText("Set Parity Error ...");
+		    }
+		  else
+		    {
+		      DisplaySettingsMSCF();
+		      std::string buffstring(buff);
+		      for (int i = 0; i < 10240; ++i)
+			{
+			  buff[i] = '\0';
+			}
+
+		      if(buffstring.find("MSCF-16 rc settings",0)!=std::string::npos && buffstring.find("MSCF-16 flash hardware version",0)!=std::string::npos)
+		      	{
+			  mscf->SetBufferData(buffstring);
+			  mscf->Print();
+		      	}
+		      else
+		      	{
+		      	  break;
+		      	}
+		   
+		      StateMsgMSCF->SetText("Open Serial Port");
+		      connectButtonMSCF->SetEnabled(0);
+		      DeleteButtonMSCF->SetEnabled(1);
+		    }
+		}
+	      break;
+	      
+	    case DELETEBUTTONMSCF:
+	      // TODO
+	      close(fd);
+	      connectButtonMSCF->SetEnabled(1);
+	      DeleteButtonMSCF->SetEnabled(0);
+	      StateMsgMSCF->SetText("Please enter Connect");
+	      break;
+	      
 	    }
 	  
 	  break;
